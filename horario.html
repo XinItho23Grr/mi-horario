@@ -153,6 +153,7 @@
         }
 
         .main-icon { font-size: 1.8rem; line-height: 1; margin-bottom: 2px; }
+        .icon-vacio { color: #475569; font-size: 1.5rem; opacity: 0.6; }
         .time-label { font-size: 10px; font-weight: 700; opacity: 0.9; }
 
         .day.state-dia { background-color: var(--dia-color); color: #0f172a; }
@@ -184,6 +185,7 @@
             body { padding: 10px; }
             .day { min-height: 100px; padding: 4px; }
             .main-icon { font-size: 1.4rem; }
+            .icon-vacio { font-size: 1.2rem; }
             .time-label { font-size: 8px; }
             .auto-panel { flex-direction: column; align-items: stretch; }
         }
@@ -237,14 +239,13 @@
     const coleccionTurnos = db.collection("turnos_4x4");
 
     let fechaActual = new Date();
-    let turnosGuardados = {}; // Se llenará desde la nube
+    let turnosGuardados = {}; 
 
     const nombresMeses = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
     const diasSemana = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 
     document.getElementById('fechaInicioAuto').valueAsDate = new Date();
 
-    // ESCUCHAR CAMBIOS EN TIEMPO REAL DESDE FIREBASE
     coleccionTurnos.onSnapshot((snapshot) => {
         turnosGuardados = {};
         snapshot.forEach((doc) => {
@@ -290,14 +291,21 @@
             div.innerHTML = `<span class="day-number">${dia}</span>`;
 
             const turnoData = turnosGuardados[fechaClave];
-            let espacioCentroHTML = `<div class="center-space"></div>`;
+            let espacioCentroHTML = "";
 
+            // SI HAY TURNO, MUESTRA SU ÍCONO. SI ESTÁ VACÍO, MUESTRA EL MÁS SUTIL (+) EN EL MEDIO
             if (turnoData) {
                 div.classList.add(`state-${turnoData.tipo}`);
                 espacioCentroHTML = `
                     <div class="center-space">
                         <div class="main-icon">${turnoData.icono}</div>
                         <div class="time-label">${turnoData.horas}</div>
+                    </div>
+                `;
+            } else {
+                espacioCentroHTML = `
+                    <div class="center-space">
+                        <div class="icon-vacio">➕</div>
                     </div>
                 `;
             }
@@ -321,7 +329,6 @@
         }
     }
 
-    // GUARDAR O BORRAR DIRECTAMENTE EN FIREBASE
     function actualizarTurnoNube(fecha, opcion) {
         if (!opcion || opcion === "borrar") {
             coleccionTurnos.doc(fecha).delete();
@@ -337,7 +344,6 @@
         }
     }
 
-    // GENERAR LÓGICA POR LOTES EN FIREBASE
     async function generarCiclo4x4() {
         const fechaInicioStr = document.getElementById('fechaInicioAuto').value;
         if (!fechaInicioStr) return alert("Selecciona una fecha");
@@ -352,7 +358,6 @@
             { tipo: "libre", icono: "🏡", horas: "Libre" }, { tipo: "libre", icono: "🏡", horas: "Libre" }, { tipo: "libre", icono: "🏡", horas: "Libre" }, { tipo: "libre", icono: "🏡", horas: "Libre" }
         ];
 
-        // Usamos Batch para guardar todo masivamente de forma rápida
         let batch = db.batch();
 
         for (let i = 0; i < 120; i++) {
