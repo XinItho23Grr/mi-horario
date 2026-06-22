@@ -362,10 +362,11 @@
 
         if(!confirm("Esto guardará tu patrón en la nube para los próximos 120 días.")) return;
 
-        let fechaCursor = new Date(fechaInicioStr + 'T00:00:00');
+        const [y, m, d] = fechaInicioStr.split('-');
+        let fechaCursor = new Date(parseInt(y), parseInt(m) - 1, parseInt(d), 12, 0, 0);
+        
         let patron = [];
 
-        // Definimos el patrón según la opción que seleccionaste
         if (tipoCiclo === "solo_dia") {
             patron = [
                 { tipo: "dia", icono: "☀️", horas: "08:00 - 20:00" }, { tipo: "dia", icono: "☀️", horas: "08:00 - 20:00" }, { tipo: "dia", icono: "☀️", horas: "08:00 - 20:00" }, { tipo: "dia", icono: "☀️", horas: "08:00 - 20:00" },
@@ -377,7 +378,6 @@
                 { tipo: "libre", icono: "🏡", horas: "Libre" }, { tipo: "libre", icono: "🏡", horas: "Libre" }, { tipo: "libre", icono: "🏡", horas: "Libre" }, { tipo: "libre", icono: "🏡", horas: "Libre" }
             ];
         } else {
-            // dia_noche (Rotativo completo)
             patron = [
                 { tipo: "dia", icono: "☀️", horas: "08:00 - 20:00" }, { tipo: "dia", icono: "☀️", horas: "08:00 - 20:00" }, { tipo: "dia", icono: "☀️", horas: "08:00 - 20:00" }, { tipo: "dia", icono: "☀️", horas: "08:00 - 20:00" },
                 { tipo: "libre", icono: "🏡", horas: "Libre" }, { tipo: "libre", icono: "🏡", horas: "Libre" }, { tipo: "libre", icono: "🏡", horas: "Libre" }, { tipo: "libre", icono: "🏡", horas: "Libre" },
@@ -386,9 +386,10 @@
             ];
         }
 
-        let batch = db.batch();
         let largoPatron = patron.length;
 
+        // Cambiado de Batch a bucle directo con promesas en paralelo para evitar límites de Firebase
+        let promesas = [];
         for (let i = 0; i < 120; i++) {
             const año = fechaCursor.getFullYear();
             const mes = String(fechaCursor.getMonth() + 1).padStart(2, '0');
@@ -397,13 +398,19 @@
 
             const pasoPatron = patron[i % largoPatron];
             let docRef = coleccionTurnos.doc(fechaClave);
-            batch.set(docRef, { tipo: pasoPatron.tipo, icono: pasoPatron.icono, horas: pasoPatron.horas });
+            
+            // Metemos la orden de guardado en la lista
+            promesas.push(docRef.set({ tipo: pasoPatron.tipo, icono: pasoPatron.icono, horas: pasoPatron.horas }));
 
             fechaCursor.setDate(fechaCursor.getDate() + 1);
         }
 
-        await batch.commit();
-        fechaActual = new Date(fechaInicioStr + 'T00:00:00');
+        // Ejecuta los 120 días juntos de forma masiva y limpia sin trabarse
+        await Promise.all(promesas);
+        
+        const [y2, m2, d2] = fechaInicioStr.split('-');
+        fechaActual = new Date(parseInt(y2), parseInt(m2) - 1, 1);
+        renderizarCalendario();
     }
 
     window.cambiarMes = function(direccion) {
