@@ -58,15 +58,23 @@
             gap: 15px;
         }
 
+        .auto-panel .inputs-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            align-items: center;
+        }
+
         .auto-panel label { font-size: 14px; color: var(--text-muted); }
 
-        .auto-panel input[type="date"] {
+        .auto-panel input[type="date"], .auto-panel select {
             background-color: #0f172a;
             color: var(--text-main);
             border: 1px solid var(--border-color);
             padding: 8px 12px;
             border-radius: 8px;
             outline: none;
+            cursor: pointer;
         }
 
         .btn-auto {
@@ -153,7 +161,6 @@
         }
 
         .main-icon { font-size: 1.8rem; line-height: 1; margin-bottom: 2px; }
-        .icon-vacio { color: #475569; font-size: 1.5rem; opacity: 0.6; }
         .time-label { font-size: 10px; font-weight: 700; opacity: 0.9; }
 
         .day.state-dia { background-color: var(--dia-color); color: #0f172a; }
@@ -181,13 +188,13 @@
         .day.state-dia .select-turno { background-color: rgba(255, 255, 255, 0.8); color: #0f172a; border: none; }
         .day.state-noche .select-turno, .day.state-extra .select-turno, .day.state-libre .select-turno { background-color: rgba(0, 0, 0, 0.4); color: #ffffff; border: none; }
 
-        @media (max-width: 600px) {
+        @media (max-width: 768px) {
             body { padding: 10px; }
             .day { min-height: 100px; padding: 4px; }
             .main-icon { font-size: 1.4rem; }
-            .icon-vacio { font-size: 1.2rem; }
             .time-label { font-size: 8px; }
             .auto-panel { flex-direction: column; align-items: stretch; }
+            .auto-panel .inputs-group { flex-direction: column; align-items: stretch; }
         }
     </style>
 </head>
@@ -197,9 +204,19 @@
     <h1>Mi Calendario de Guardia 4x4 Cloud</h1>
 
     <div class="auto-panel">
-        <div>
-            <label for="fechaInicioAuto">¿Qué día inicias tu bloque de DÍA?: </label>
-            <input type="date" id="fechaInicioAuto">
+        <div class="inputs-group">
+            <div>
+                <label for="fechaInicioAuto">Fecha de Inicio: </label>
+                <input type="date" id="fechaInicioAuto">
+            </div>
+            <div>
+                <label for="tipoCicloAuto">Tipo de Turno: </label>
+                <select id="tipoCicloAuto">
+                    <option value="dia_noche">🔄 4x4 Día y Noche (Rotativo)</option>
+                    <option value="solo_dia">☀️ 4x4 Solo Día</option>
+                    <option value="solo_noche">🌙 4x4 Solo Noche</option>
+                </select>
+            </div>
         </div>
         <button class="btn-auto" onclick="generarCiclo4x4()">⚡ Auto-completar Rol Nube</button>
     </div>
@@ -291,21 +308,14 @@
             div.innerHTML = `<span class="day-number">${dia}</span>`;
 
             const turnoData = turnosGuardados[fechaClave];
-            let espacioCentroHTML = "";
+            let espacioCentroHTML = `<div class="center-space"></div>`;
 
-            // SI HAY TURNO, MUESTRA SU ÍCONO. SI ESTÁ VACÍO, MUESTRA EL MÁS SUTIL (+) EN EL MEDIO
             if (turnoData) {
                 div.classList.add(`state-${turnoData.tipo}`);
                 espacioCentroHTML = `
                     <div class="center-space">
                         <div class="main-icon">${turnoData.icono}</div>
                         <div class="time-label">${turnoData.horas}</div>
-                    </div>
-                `;
-            } else {
-                espacioCentroHTML = `
-                    <div class="center-space">
-                        <div class="icon-vacio">➕</div>
                     </div>
                 `;
             }
@@ -346,19 +356,38 @@
 
     async function generarCiclo4x4() {
         const fechaInicioStr = document.getElementById('fechaInicioAuto').value;
+        const tipoCiclo = document.getElementById('tipoCicloAuto').value;
+        
         if (!fechaInicioStr) return alert("Selecciona una fecha");
 
         if(!confirm("Esto guardará tu patrón en la nube para los próximos 120 días.")) return;
 
         let fechaCursor = new Date(fechaInicioStr + 'T00:00:00');
-        const patron = [
-            { tipo: "dia", icono: "☀️", horas: "08:00 - 20:00" }, { tipo: "dia", icono: "☀️", horas: "08:00 - 20:00" }, { tipo: "dia", icono: "☀️", horas: "08:00 - 20:00" }, { tipo: "dia", icono: "☀️", horas: "08:00 - 20:00" },
-            { tipo: "libre", icono: "🏡", horas: "Libre" }, { tipo: "libre", icono: "🏡", horas: "Libre" }, { tipo: "libre", icono: "🏡", horas: "Libre" }, { tipo: "libre", icono: "🏡", horas: "Libre" },
-            { tipo: "noche", icono: "🌙", horas: "20:00 - 08:00" }, { tipo: "noche", icono: "🌙", horas: "20:00 - 08:00" }, { tipo: "noche", icono: "🌙", horas: "20:00 - 08:00" }, { tipo: "noche", icono: "🌙", horas: "20:00 - 08:00" },
-            { tipo: "libre", icono: "🏡", horas: "Libre" }, { tipo: "libre", icono: "🏡", horas: "Libre" }, { tipo: "libre", icono: "🏡", horas: "Libre" }, { tipo: "libre", icono: "🏡", horas: "Libre" }
-        ];
+        let patron = [];
+
+        // Definimos el patrón según la opción que seleccionaste
+        if (tipoCiclo === "solo_dia") {
+            patron = [
+                { tipo: "dia", icono: "☀️", horas: "08:00 - 20:00" }, { tipo: "dia", icono: "☀️", horas: "08:00 - 20:00" }, { tipo: "dia", icono: "☀️", horas: "08:00 - 20:00" }, { tipo: "dia", icono: "☀️", horas: "08:00 - 20:00" },
+                { tipo: "libre", icono: "🏡", horas: "Libre" }, { tipo: "libre", icono: "🏡", horas: "Libre" }, { tipo: "libre", icono: "🏡", horas: "Libre" }, { tipo: "libre", icono: "🏡", horas: "Libre" }
+            ];
+        } else if (tipoCiclo === "solo_noche") {
+            patron = [
+                { tipo: "noche", icono: "🌙", horas: "20:00 - 08:00" }, { tipo: "noche", icono: "🌙", horas: "20:00 - 08:00" }, { tipo: "noche", icono: "🌙", horas: "20:00 - 08:00" }, { tipo: "noche", icono: "🌙", horas: "20:00 - 08:00" },
+                { tipo: "libre", icono: "🏡", horas: "Libre" }, { tipo: "libre", icono: "🏡", horas: "Libre" }, { tipo: "libre", icono: "🏡", horas: "Libre" }, { tipo: "libre", icono: "🏡", horas: "Libre" }
+            ];
+        } else {
+            // dia_noche (Rotativo completo)
+            patron = [
+                { tipo: "dia", icono: "☀️", horas: "08:00 - 20:00" }, { tipo: "dia", icono: "☀️", horas: "08:00 - 20:00" }, { tipo: "dia", icono: "☀️", horas: "08:00 - 20:00" }, { tipo: "dia", icono: "☀️", horas: "08:00 - 20:00" },
+                { tipo: "libre", icono: "🏡", horas: "Libre" }, { tipo: "libre", icono: "🏡", horas: "Libre" }, { tipo: "libre", icono: "🏡", horas: "Libre" }, { tipo: "libre", icono: "🏡", horas: "Libre" },
+                { tipo: "noche", icono: "🌙", horas: "20:00 - 08:00" }, { tipo: "noche", icono: "🌙", horas: "20:00 - 08:00" }, { tipo: "noche", icono: "🌙", horas: "20:00 - 08:00" }, { tipo: "noche", icono: "🌙", horas: "20:00 - 08:00" },
+                { tipo: "libre", icono: "🏡", horas: "Libre" }, { tipo: "libre", icono: "🏡", horas: "Libre" }, { tipo: "libre", icono: "🏡", horas: "Libre" }, { tipo: "libre", icono: "🏡", horas: "Libre" }
+            ];
+        }
 
         let batch = db.batch();
+        let largoPatron = patron.length;
 
         for (let i = 0; i < 120; i++) {
             const año = fechaCursor.getFullYear();
@@ -366,7 +395,7 @@
             const dia = String(fechaCursor.getDate()).padStart(2, '0');
             const fechaClave = `${año}-${mes}-${dia}`;
 
-            const pasoPatron = patron[i % 16];
+            const pasoPatron = patron[i % largoPatron];
             let docRef = coleccionTurnos.doc(fechaClave);
             batch.set(docRef, { tipo: pasoPatron.tipo, icono: pasoPatron.icono, horas: pasoPatron.horas });
 
