@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mi Calendario de Guardia 4x4 Cloud</title>
+    
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+
+    <style>
+        :root {
+            --bg-color: #0f172a; --card-bg: #1e293b; --text-main: #f8fafc; --text-muted: #94a3b8; --border-color: #334155;
+            --dia-color: #f59e0b; --noche-color: #3b82f6; --extra-color: #10b981; --libre-color: #475569;     
+        }
+        body { font-family: 'Segoe UI', sans-serif; background-color: var(--bg-color); color: var(--text-main); margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; min-height: 100vh; }
+        .container { max-width: 1000px; width: 100%; }
+        h1 { text-align: center; font-size: 2rem; margin-bottom: 5px; background: linear-gradient(to right, #38bdf8, #818cf8); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        
+        .user-panel { display: flex; justify-content: space-between; align-items: center; background: var(--card-bg); border: 1px solid var(--border-color); padding: 12px 20px; border-radius: 12px; margin-bottom: 20px; font-size: 15px; font-weight: 500; }
+        .btn-logout { background: #f43f5e; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-weight: 600; }
+
+        .auto-panel { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 12px; padding: 15px 20px; margin-bottom: 20px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 15px; }
+        .auto-panel .inputs-group { display: flex; flex-wrap: wrap; gap: 15px; align-items: center; }
+        .auto-panel label { font-size: 14px; color: var(--text-muted); }
+        .auto-panel input[type="date"], .auto-panel select { background-color: #0f172a; color: var(--text-main); border: 1px solid var(--border-color); padding: 8px 12px; border-radius: 8px; outline: none; cursor: pointer; }
+        .btn-auto { background: linear-gradient(to right, #2563eb, #1d4ed8); color: white; border: none; padding: 10px 20px; font-size: 14px; border-radius: 8px; cursor: pointer; font-weight: 600; }
+
+        .calendar-header { display: flex; justify-content: space-between; align-items: center; background: var(--card-bg); padding: 20px 25px; border-radius: 16px 16px 0 0; border: 1px solid var(--border-color); border-bottom: none; }
+        .btn-nav { background-color: #334155; color: var(--text-main); border: 1px solid var(--border-color); padding: 10px 18px; font-size: 14px; border-radius: 8px; cursor: pointer; }
+        .leyenda { display: flex; justify-content: center; flex-wrap: wrap; gap: 25px; background: var(--card-bg); padding: 15px; border-left: 1px solid var(--border-color); border-right: 1px solid var(--border-color); font-size: 14px; color: var(--text-muted); }
+        .leyenda-item { display: flex; align-items: center; gap: 8px; }
+        .box { width: 16px; height: 16px; border-radius: 4px; }
+        .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); background: var(--card-bg); padding: 15px; border-radius: 0 0 16px 16px; border: 1px solid var(--border-color); gap: 8px; }
+        
+        .weekday { text-align: center; font-weight: 600; color: var(--text-muted); padding: 10px 0; font-size: 13px; text-transform: uppercase; }
+        .weekday:nth-child(6), .weekday:nth-child(7) { color: #f43f5e; }
+        .day { min-height: 120px; background-color: #1e293b; border: 1px solid var(--border-color); border-radius: 10px; padding: 8px; display: flex; flex-direction: column; justify-content: space-between; position: relative; }
+        .day-number { font-weight: 600; color: var(--text-muted); font-size: 13px; }
+        .center-space { display: flex; flex-direction: column; align-items: center; justify-content: center; flex-grow: 1; }
+        .main-icon { font-size: 1.8rem; line-height: 1; margin-bottom: 2px; }
+        .time-label { font-size: 10px; font-weight: 700; opacity: 0.9; }
+
+        .day.state-dia { background-color: var(--dia-color); color: #0f172a; }
+        .day.state-noche { background-color: var(--noche-color); color: #ffffff; }
+        .day.state-extra { background-color: var(--extra-color); color: #ffffff; }
+        .day.state-libre { background-color: var(--libre-color); color: #f8fafc; }
+        .day.state-dia .day-number { color: #1e293b; }
+        .day.empty { background-color: #151f32; border: 1px dashed #273549; opacity: 0.4; }
+        .select-turno { width: 100%; font-size: 10px; border: 1px solid var(--border-color); border-radius: 6px; padding: 4px; cursor: pointer; background-color: #0f172a; color: var(--text-main); outline: none; text-align: center; }
+        .day.state-dia .select-turno { background-color: rgba(255, 255, 255, 0.8); color: #0f172a; border: none; }
+        .day.state-noche .select-turno, .day.state-extra .select-turno, .day.state-libre .select-turno { background-color: rgba(0, 0, 0, 0.4); color: #ffffff; border: none; }
+
+        @media (max-width: 768px) {
+            .day { min-height: 100px; padding: 4px; }
+            .main-icon { font-size: 1.4rem; }
+            .time-label { font-size: 8px; }
+            .auto-panel { flex-direction: column; align-items: stretch; }
+            .auto-panel .inputs-group { flex-direction: column; align-items: stretch; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>Mi Calendario de Guardia 4x4 Cloud</h1>
+        
+        <div class="user-panel">
+            <span id="userConnectedText">Cargando usuario...</span>
+            <button class="btn-logout" onclick="cerrarSesion()">Cerrar Sesión 🚪</button>
+        </div>
+
+        <div class="auto-panel">
+            <div class="inputs-group">
+                <div>
+                    <label for="fechaInicioAuto">Fecha de Inicio: </label>
+                    <input type="date" id="fechaInicioAuto">
+                </div>
+                <div>
+                    <label for="tipoCicloAuto">Tipo de Turno: </label>
+                    <select id="tipoCicloAuto">
+                        <option value="dia_noche">🔄 4x4 Día y Noche (Rotativo)</option>
+                        <option value="solo_dia">☀️ 4x4 Solo Día</option>
+                        <option value="solo_noche">🌙 4x4 Solo Noche</option>
+                    </select>
+                </div>
+            </div>
+            <button class="btn-auto" onclick="generarCiclo4x4()">⚡ Auto-completar Rol Nube</button>
+        </div>
+        
+        <div class="calendar-header">
+            <button class="btn-nav" onclick="cambiarMes(-1)">◀ Ant</button>
+            <h2 id="mesAño"></h2>
+            <button class="btn-nav" onclick="cambiarMes(1)">Sig ▶</button>
+        </div>
+
+        <div class="leyenda">
+            <div class="leyenda-item"><div class="box" style="background: var(--dia-color)"></div> ☀️ Día (08:00 - 20:00)</div>
+            <div class="leyenda-item"><div class="box" style="background: var(--noche-color)"></div> 🌙 Noche (20:00 - 08:00)</div>
+            <div class="leyenda-item"><div class="box" style="background: var(--extra-color)"></div> ⏰ Extra</div>
+            <div class="leyenda-item"><div class="box" style="background: var(--libre-color)"></div> 🏡 Libre</div>
+        </div>
+
+        <div class="calendar-grid" id="calendario"></div>
+    </div>
+
+<script>
+    // Configuración temporal (La cambiaremos cuando saquemos los accesos reales de Firebase)
+    const firebaseConfig = { apiKey: "TEMPORAL", authDomain: "", projectId: "", storageBucket: "", messagingSenderId: "", appId: "" };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+    const auth = firebase.auth();
+
+    let coleccionTurnos = null;
+    let unsubscribeSnapshot = null;
+    let turnosGuardados = {}; 
+    let fechaActual = new Date();
+
+    const nombresMeses = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+    const diasSemana = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
+
+    document.getElementById('fechaInicioAuto').valueAsDate = new Date();
+
+    // SEGURIDAD Y BIENVENIDA PERSONALIZADA
+    auth.onAuthStateChanged((user) => {
+        if (user) {
+            // Muestra el nombre registrado; si no existe por alguna razón, usa su correo electrónico
+            const nombreMostrar = user.displayName ? user.displayName : user.email;
+            document.getElementById('userConnectedText').innerText = `👋 ¡Hola, ${nombreMostrar}!`;
+            
+            // Asignación de base de datos protegida individual
+            coleccionTurnos = db.collection("usuarios_4x4").doc(user.uid).collection("turnos");
+            
+            if (unsubscribeSnapshot) unsubscribeSnapshot();
+            unsubscribeSnapshot = coleccionTurnos.onSnapshot((snapshot) => {
+                turnosGuardados = {};
+                snapshot.forEach((doc) => { turnosGuardados[doc.id] = doc.data(); });
+                renderizarCalendario();
+            });
+        } else {
+            // Si intenta entrar sin loguearse lo expulsa automáticamente al Login
+            window.location.href = "index.html";
+        }
+    });
+
+    function renderizarCalendario() {
+        const grid = document.getElementById('calendario');
+        const mesAñoTexto = document.getElementById('mesAño');
+        grid.innerHTML = '';
+        const año = fechaActual.getFullYear();
+        const mes = fechaActual.getMonth();
+        mesAñoTexto.innerText = `${nombresMeses[mes]} ${año}`;
+
+        diasSemana.forEach(dia => {
+            const div = document.createElement('div');
+            div.className = 'weekday'; div.innerText = dia; grid.appendChild(div);
+        });
+
+        let primerDiaIndex = new Date(año, mes, 1).getDay();
+        primerDiaIndex = primerDiaIndex === 0 ? 6 : primerDiaIndex - 1;
+        const totalDias = new Date(año, mes + 1, 0).getDate();
+
+        for (let i = 0; i < primerDiaIndex; i++) {
+            const div = document.createElement('div'); div.className = 'day empty'; grid.appendChild(div);
+        }
+
+        for (let dia = 1; dia <= totalDias; dia++) {
+            const div = document.createElement('div'); div.className = 'day';
+            const mesFormateado = String(mes + 1).padStart(2, '0');
+            const diaFormateado = String(dia).padStart(2, '0');
+            const fechaClave = `${año}-${mesFormateado}-${diaFormateado}`;
+
+            div.innerHTML = `<span class="day-number">${dia}</span>`;
+            const turnoData = turnosGuardados[fechaClave];
+            let espacioCentroHTML = `<div class="center-space"></div>`;
+
+            if (turnoData) {
+                div.classList.add(`state-${turnoData.tipo}`);
+                espacioCentroHTML = `<div class="center-space"><div class="main-icon">${turnoData.icono}</div><div class="time-label">${turnoData.horas}</div></div>`;
+            }
+            div.innerHTML += espacioCentroHTML;
+
+            const select = document.createElement('select');
+            select.className = 'select-turno';
+            select.innerHTML = `
+                <option value="">+ Modificar</option>
+                <option value="dia" ${turnoData?.tipo === 'dia' ? 'selected' : ''}>☀️ Día</option>
+                <option value="noche" ${turnoData?.tipo === 'noche' ? 'selected' : ''}>🌙 Noche</option>
+                <option value="extra-d" ${turnoData?.tipo === 'extra' && turnoData?.horas === '08:00 - 20:00' ? 'selected' : ''}>⏰ Extra Día</option>
+                <option value="extra-n" ${turnoData?.tipo === 'extra' && turnoData?.horas === '20:00 - 08:00' ? 'selected' : ''}>⏰ Extra Noche</option>
+                <option value="libre" ${turnoData?.tipo === 'libre' ? 'selected' : ''}>🏡 Libre</option>
+                <option value="borrar">❌ Vacío</option>
+            `;
+            select.onchange = function() { actualizarTurnoNube(fechaClave, this.value); };
+            div.appendChild(select); grid.appendChild(div);
+        }
+    }
+
+    function actualizarTurnoNube(fecha, opcion) {
+        if (!coleccionTurnos) return;
+        if (!opcion || opcion === "borrar") {
+            coleccionTurnos.doc(fecha).delete();
+        } else {
+            let tipo = "", icono = "", horas = "";
+            if (opcion === "dia") { tipo = "dia"; icono = "☀️"; horas = "08:00 - 20:00"; }
+            else if (opcion === "noche") { tipo = "noche"; icono = "🌙"; horas = "20:00 - 08:00"; }
+            else if (opcion === "extra-d") { tipo = "extra"; icono = "⏰"; horas = "08:00 - 20:00"; }
+            else if (opcion === "extra-n") { tipo = "extra"; icono = "⏰"; horas = "20:00 - 08:00"; }
+            else if (opcion === "libre") { tipo = "libre"; icono = "🏡"; horas = "Libre"; }
+            coleccionTurnos.doc(fecha).set({ tipo, icono, horas });
+        }
+    }
+
+    async function generarCiclo4x4() {
+        if (!coleccionTurnos) return;
+        const fechaInicioStr = document.getElementById('fechaInicioAuto').value;
+        const tipoCiclo = document.getElementById('tipoCicloAuto').value;
+        if (!fechaInicioStr) return alert("Selecciona una fecha");
+        if(!confirm("Esto guardará tu patrón en la nube para los próximos 120 días.")) return;
+
+        const [y, m, d] = fechaInicioStr.split('-');
+        let fechaCursor = new Date(parseInt(y), parseInt(m) - 1, parseInt(d), 12, 0, 0);
+        let patron = [];
+        if (tipoCiclo === "solo_dia") {
+            patron = [{ tipo: "dia", icono: "☀️", horas: "08:00 - 20:00" }, { tipo: "dia", icono: "☀️", horas: "08:00 - 20:00" }, { tipo: "dia", icono: "☀️", horas: "08:00 - 20:00" }, { tipo: "dia", icono: "☀️", horas: "08:00 - 20:00" }, { tipo: "libre", icono: "🏡", horas: "Libre" }, { tipo: "libre", icono: "🏡", horas: "Libre" }, { tipo: "libre", icono: "🏡", horas: "Libre" }, { tipo: "libre", icono: "🏡", horas: "Libre" }];
+        } else if (tipoCiclo === "solo_noche") {
+            patron = [{ tipo: "noche", icono: "🌙", horas: "20:00 - 08:00" }, { tipo: "noche", icono: "🌙", horas: "20:00 - 08:00" }, { tipo: "noche", icono: "🌙", horas: "20:00 - 08:00" }, { tipo: "noche", icono: "🌙", horas: "20:00 - 08:00" }, { tipo: "libre", icono: "🏡", horas: "Libre" }, { tipo: "libre", icono: "🏡", horas: "Libre" }, { tipo: "libre", icono: "🏡", horas: "Libre" }, { tipo: "libre", icono: "🏡", horas: "Libre" }];
+        } else {
+            patron = [{ tipo: "dia", icono: "☀️", horas: "08:00 - 20:00" }, { tipo: "dia", icono: "☀️", horas: "08:00 - 20:00" }, { tipo: "dia", icono: "☀️", horas: "08:00 - 20:00" }, { tipo: "dia", icono: "☀️", horas: "08:00 - 20:00" }, { tipo: "libre", icono: "🏡", horas: "Libre" }, { tipo: "libre", icono: "🏡", horas: "Libre" }, { tipo: "libre", icono: "🏡", horas: "Libre" }, { tipo: "libre", icono: "🏡", horas: "Libre" }, { tipo: "noche", icono: "🌙", horas: "20:00 - 08:00" }, { tipo: "noche", icono: "🌙", horas: "20:00 - 08:00" }, { tipo: "noche", icono: "🌙", horas: "20:00 - 08:00" }, { tipo: "noche", icono: "🌙", horas: "20:00 - 08:00" }, { tipo: "libre", icono: "🏡", horas: "Libre" }, { tipo: "libre", icono: "🏡", horas: "Libre" }, { tipo: "libre", icono: "🏡", horas: "Libre" }, { tipo: "libre", icono: "🏡", horas: "Libre" }];
+        }
+
+        let largoPatron = patron.length; let promesas = [];
+        for (let i = 0; i < 120; i++) {
+            const año = fechaCursor.getFullYear(); const mes = String(fechaCursor.getMonth() + 1).padStart(2, '0'); const dia = String(fechaCursor.getDate()).padStart(2, '0'); const fechaClave = `${año}-${mes}-${dia}`;
+            const pasoPatron = patron[i % largoPatron]; let docRef = coleccionTurnos.doc(fechaClave);
+            promesas.push(docRef.set({ tipo: pasoPatron.tipo, icono: pasoPatron.icono, horas: pasoPatron.horas }));
+            fechaCursor.setDate(fechaCursor.getDate() + 1);
+        }
+        await Promise.all(promesas);
+        const [y2, m2, d2] = fechaInicioStr.split('-'); fechaActual = new Date(parseInt(y2), parseInt(m2) - 1, 1);
+        renderizarCalendario();
+    }
+
+    function cerrarSesion() { auth.signOut(); }
+    window.cambiarMes = function(direccion) { fechaActual.setMonth(fechaActual.getMonth() + direccion); renderizarCalendario(); }
+</script>
+</body>
+</html>

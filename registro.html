@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Registro - Guardias 4x4</title>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background-color: #0f172a; color: #f8fafc; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
+        .auth-container { max-width: 400px; width: 100%; background: #1e293b; border: 1px solid #334155; border-radius: 16px; padding: 30px; box-shadow: 0 10px 25px rgba(0,0,0,0.3); }
+        h2 { text-align: center; color: #818cf8; margin-top: 0; }
+        .form-group { margin-bottom: 15px; display: flex; flex-direction: column; }
+        .form-group label { font-size: 14px; color: #94a3b8; margin-bottom: 5px; }
+        .form-group input { background-color: #0f172a; color: #f8fafc; border: 1px solid #334155; padding: 10px; border-radius: 8px; outline: none; }
+        
+        /* Contenedor especial para la contraseña con el ojo */
+        .password-wrapper { position: relative; display: flex; flex-direction: column; }
+        .password-wrapper input { padding-right: 40px; width: 100%; box-sizing: border-box; }
+        .toggle-password { position: absolute; right: 12px; top: 33px; cursor: pointer; font-size: 16px; user-select: none; }
+        
+        .btn-auth { width: 100%; background: linear-gradient(to right, #818cf8, #4f46e5); color: white; border: none; padding: 12px; font-size: 15px; border-radius: 8px; cursor: pointer; font-weight: 600; margin-top: 10px; }
+        .auth-toggle { text-align: center; font-size: 13px; color: #94a3b8; margin-top: 15px; }
+        .auth-toggle a { color: #818cf8; text-decoration: underline; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+    <div class="auth-container">
+        <h2>Crear Cuenta Nueva</h2>
+        
+        <div class="form-group">
+            <label for="authName">Nombre Completo</label>
+            <input type="text" id="authName" placeholder="Tu nombre y apellido">
+        </div>
+
+        <div class="form-group">
+            <label for="authEmail">Correo Electrónico</label>
+            <input type="email" id="authEmail" placeholder="ejemplo@correo.com">
+        </div>
+
+        <div class="form-group password-wrapper">
+            <label for="authPassword">Contraseña (Mínimo 6 caracteres)</label>
+            <input type="password" id="authPassword" placeholder="Crea una contraseña segura">
+            <span class="toggle-password" id="eyeIcon" onclick="togglePasswordVisibility()">👁️</span>
+        </div>
+
+        <button class="btn-auth" onclick="registrarUsuario()">Registrarse</button>
+        <div class="auth-toggle">
+            ¿Ya tienes cuenta? <a href="index.html">Inicia sesión aquí</a>
+        </div>
+    </div>
+
+<script>
+    const firebaseConfig = { apiKey: "TEMPORAL", authDomain: "", projectId: "", storageBucket: "", messagingSenderId: "", appId: "" };
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+
+    // Función para mostrar/ocultar contraseña cambiando el emoji del ojo
+    function togglePasswordVisibility() {
+        const passwordInput = document.getElementById('authPassword');
+        const eyeIcon = document.getElementById('eyeIcon');
+        
+        if (passwordInput.type === 'password') {
+            passwordInput.type = 'text';
+            eyeIcon.innerText = '➖';
+        } else {
+            passwordInput.type = 'password';
+            eyeIcon.innerText = '👁️';
+        }
+    }
+
+    function registrarUsuario() {
+        const nombre = document.getElementById('authName').value.trim();
+        const email = document.getElementById('authEmail').value.trim();
+        const password = document.getElementById('authPassword').value;
+
+        if (!nombre || !email || !password) return alert("Completa todos los campos");
+        if (password.length < 6) return alert("La contraseña debe tener mínimo 6 caracteres");
+
+        auth.createUserWithEmailAndPassword(email, password)
+            .then((userCredential) => {
+                // Guardamos el nombre en el perfil del usuario de Firebase
+                return userCredential.user.updateProfile({
+                    displayName: nombre
+                });
+            })
+            .then(() => {
+                alert("¡Cuenta creada exitosamente!");
+                window.location.href = "calendario.html";
+            })
+            .catch(error => alert("Error de registro: " + error.message));
+    }
+</script>
+</body>
+</html>
